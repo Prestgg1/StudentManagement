@@ -226,6 +226,8 @@ class _HomePageState extends State<HomePage> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width,
                     child: DataTable(
+                      horizontalMargin: 0,
+                      columnSpacing: 0,
                       headingRowColor: WidgetStateProperty.all(
                         Theme.of(context).primaryColor,
                       ),
@@ -294,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                                     final date = DateTime(now.year, i + 1);
                                     return "${date.year}-${date.month.toString().padLeft(2, '0')}";
                                   });
-                                  return Row(
+                                  return Wrap(
                                     children: months.map((m) {
                                       final isPaid = paidMonths.contains(m);
                                       return Container(
