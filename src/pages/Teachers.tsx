@@ -57,12 +57,18 @@ function Teachers() {
 
             if (newTeacher().profile_picture) {
                 const file = newTeacher().profile_picture;
+                if (!file) return;
                 const buffer = await file.arrayBuffer();
                 // Uint8Array birbaşa göndər
                 const uint8Buffer = new Uint8Array(buffer);
 
+                if (!file) {
+                    console.error("File is undefined");
+                    return;
+                };
+                console.log(file)
                 profile_path = await invoke<string>("upload_image", {
-                    file_name: file.name,
+                    name: file.name,
                     buffer: uint8Buffer,  // Array.from yox
                 });
 
@@ -72,10 +78,10 @@ function Teachers() {
             }
 
             await invoke("add_teacher", {
-                first_name: newTeacher().first_name,
-                last_name: newTeacher().last_name,
-                profile_picture: profile_path,
-                ders_id: newTeacher().ders_id,
+                firstname: newTeacher().first_name,
+                lastname: newTeacher().last_name,
+                profilepicture: profile_path,
+                dersid: newTeacher().ders_id,
             });
 
             setNewTeacher({ first_name: "", last_name: "", ders_id: 0 });
@@ -192,6 +198,7 @@ function Teachers() {
                     {teachers().map((teacher) => (
                         <div class="card shadow-md p-4 flex flex-col items-center bg-white rounded-lg">
                             <img
+                                
                                 src={teacher.profile_picture ?? "/default-avatar.png"}
                                 alt="Profile"
                                 class="w-24 h-24 rounded-full mb-2 object-cover"

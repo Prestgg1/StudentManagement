@@ -4,17 +4,39 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use tauri::command;
+use base64;
+
 #[tauri::command]
-pub fn upload_image(file_name: String, buffer: Vec<u8>) -> Result<String, String> {
+pub fn upload_image(name: String, buffer: Vec<u8>) -> Result<String, String> {
+    // 1. Faylı yerli diskə yadda saxla (yalnız yaddaş üçün, bazaya path yazılmır)
     let images_dir = std::path::Path::new("images");
     if !images_dir.exists() {
-        std::fs::create_dir_all(images_dir).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(images_dir).map_err(|e| format!("Qovluq yaradılarkən xəta: {}", e))?;
     }
 
-    let dest_path = images_dir.join(&file_name);
-    std::fs::write(&dest_path, buffer).map_err(|e| e.to_string())?;
+    let dest_path = images_dir.join(&name);
+    // Faylı yazırıq (gələcəkdə istifadə və ya backup üçün)
+    std::fs::write(&dest_path, &buffer).map_err(|e| format!("Fayl yazılarkən xəta: {}", e))?;
 
-    Ok(dest_path.to_string_lossy().to_string())
+    // 2. Base64-ə çevirmə və Data URI-ni hazırlama
+    
+    // MIME növünü təyin etmək üçün faylın adından istifadə edirik
+    let mime_type = if name.to_lowercase().ends_with(".png") {
+        "image/png"
+    } else if name.to_lowercase().ends_with(".jpg") || name.to_lowercase().ends_with(".jpeg") {
+        "image/jpeg"
+    } else if name.to_lowercase().ends_with(".gif") {
+        "image/gif"
+    } else {
+        // Naməlum növ üçün standart JPEG istifadə edirik
+        "image/jpeg" 
+    };
+
+    // Base64 kodlaşdırın
+    let base64_encoded = base64::encode(&buffer);
+
+    // Data URI formatında geri qaytarın (bu string ön tərəfdə src-də istifadə olunacaq)
+    Ok(format!("data:{};base64,{}", mime_type, base64_encoded))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,19 +50,19 @@ pub struct Teacher {
 
 #[tauri::command]
 pub fn add_teacher(
-    first_name: String,
-    last_name: String,
-    profile_picture: Option<String>,
-    ders_id: i32,
+    firstname: String,
+    lastname: String,
+    profilepicture: Option<String>,
+    dersid: i32,
 ) -> Result<String, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
 
     conn.execute(
         "INSERT INTO teachers (first_name, last_name, profile_picture, ders_id) VALUES (?1, ?2, ?3, ?4)",
-        params![first_name, last_name, profile_picture, ders_id],
+        params![firstname, lastname, profilepicture, dersid],
     ).map_err(|e| e.to_string())?;
 
-    Ok(format!("Müəllim {} {} əlavə olundu", first_name, last_name))
+    Ok(format!("Müəllim {} {} əlavə olundu", firstname, lastname))
 }
 
 #[tauri::command]
