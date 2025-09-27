@@ -28,10 +28,8 @@ const Layout = (props: any) => {
                             </label>
                         </div>
 
-                        {/* Başlık */}
-                        <div class="flex-1 px-2 mx-2 font-bold">📚 Tauri Solid App</div>
+                        <div class="flex-1 px-2 mx-2 font-bold">📚 Student Management</div>
 
-                        {/* Navbar linkleri (büyük ekran) */}
                         <div class="hidden lg:flex gap-4">
                             <A href="/" class="btn btn-ghost btn-sm">🏠 Ana Səhifə</A>
                             <A href="/students" class="btn btn-ghost btn-sm">👨‍🎓 Tələbələr</A>
@@ -41,13 +39,11 @@ const Layout = (props: any) => {
                         </div>
                     </div>
 
-                    {/* Router içerik */}
                     <div class="flex-1 p-4">
                         {props.children}
                     </div>
                 </div>
 
-                {/* Drawer side (mobil) */}
                 <div class="drawer-side">
                     <label for="my-drawer" class="drawer-overlay"></label>
                     <ul class="menu p-4 w-64 bg-base-200 text-base-content space-y-2">

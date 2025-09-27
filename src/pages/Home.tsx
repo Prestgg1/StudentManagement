@@ -1,6 +1,7 @@
 import { createSignal, onMount } from "solid-js";
 import { invoke } from "@tauri-apps/api/core"; // ✅ sənin istədiyin kimi
 import { A } from "@solidjs/router";
+import { useToast } from "../hooks/useToast";
 
 function Home() {
     const [dersler, setDersler] = createSignal<Array<{ id: number; name: string }>>([]);
@@ -12,15 +13,7 @@ function Home() {
     const [editingId, setEditingId] = createSignal<number | null>(null);
     const [editName, setEditName] = createSignal("");
 
-    const [toastMsg, setToastMsg] = createSignal<string | null>(null);
-    const [toastType, setToastType] = createSignal<"success" | "error">("success");
-
-    // Toast helper
-    const showToast = (msg: string, type: "success" | "error" = "success") => {
-        setToastMsg(msg);
-        setToastType(type);
-        setTimeout(() => setToastMsg(null), 3000);
-    };
+    const { toastMsg, toastType, showToast } = useToast(); // hook'dan aldıq
 
     // Dersleri getir
     const fetchDersler = async () => {
@@ -148,6 +141,12 @@ function Home() {
                                     <>
                                         <span>{ders.name}</span>
                                         <div class="flex gap-2">
+                                            <button class="btn btn-accent btn-xs">
+                                                <A href={`/ders/${ders.id}`}>Müəllimlərə Bax</A>
+                                            </button>
+                                            <button class="btn btn-primary btn-xs">
+                                                <A href={`/ders/${ders.id}/students`}>Tələbələrə Bax</A>
+                                            </button>
                                             <button
                                                 class="btn btn-warning btn-xs"
                                                 onClick={

@@ -1,26 +1,18 @@
 use crate::init_db;
 use rusqlite::{params, Result};
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
-use tauri::command;
-use base64;
+use base64::{engine::general_purpose, Engine as _};
 
 #[tauri::command]
 pub fn upload_image(name: String, buffer: Vec<u8>) -> Result<String, String> {
-    // 1. Faylı yerli diskə yadda saxla (yalnız yaddaş üçün, bazaya path yazılmır)
     let images_dir = std::path::Path::new("images");
     if !images_dir.exists() {
         std::fs::create_dir_all(images_dir).map_err(|e| format!("Qovluq yaradılarkən xəta: {}", e))?;
     }
 
     let dest_path = images_dir.join(&name);
-    // Faylı yazırıq (gələcəkdə istifadə və ya backup üçün)
     std::fs::write(&dest_path, &buffer).map_err(|e| format!("Fayl yazılarkən xəta: {}", e))?;
 
-    // 2. Base64-ə çevirmə və Data URI-ni hazırlama
-    
-    // MIME növünü təyin etmək üçün faylın adından istifadə edirik
     let mime_type = if name.to_lowercase().ends_with(".png") {
         "image/png"
     } else if name.to_lowercase().ends_with(".jpg") || name.to_lowercase().ends_with(".jpeg") {
@@ -28,14 +20,10 @@ pub fn upload_image(name: String, buffer: Vec<u8>) -> Result<String, String> {
     } else if name.to_lowercase().ends_with(".gif") {
         "image/gif"
     } else {
-        // Naməlum növ üçün standart JPEG istifadə edirik
         "image/jpeg" 
     };
+    let base64_encoded = general_purpose::STANDARD.encode(&buffer);
 
-    // Base64 kodlaşdırın
-    let base64_encoded = base64::encode(&buffer);
-
-    // Data URI formatında geri qaytarın (bu string ön tərəfdə src-də istifadə olunacaq)
     Ok(format!("data:{};base64,{}", mime_type, base64_encoded))
 }
 
@@ -95,15 +83,15 @@ pub fn get_teachers() -> Result<Vec<Teacher>, String> {
 #[tauri::command]
 pub fn update_teacher(
     id: i32,
-    first_name: String,
-    last_name: String,
-    profile_picture: Option<String>,
-    ders_id: i32,
+    firstname: String,
+    lastname: String,
+    profilepicture: Option<String>,
+    dersid: i32,
 ) -> Result<String, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     let rows = conn.execute(
         "UPDATE teachers SET first_name = ?1, last_name = ?2, profile_picture = ?3, ders_id = ?4 WHERE id = ?5",
-        params![first_name, last_name, profile_picture, ders_id, id],
+        params![firstname, lastname, profilepicture, dersid, id],
     ).map_err(|e| e.to_string())?;
 
     if rows > 0 {
