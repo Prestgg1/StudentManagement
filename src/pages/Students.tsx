@@ -8,6 +8,7 @@ function Students() {
 
   const fetchStudents = async () => {
     setStudents(await getStudents());
+    console.log(students())
   };
 
   return <StudentTable title="Bütün tələbələr" fetchStudents={fetchStudents} />;

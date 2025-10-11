@@ -8,6 +8,7 @@ pub struct Student {
     id: i32,
     first_name: String,
     last_name: String,
+    dersler: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,22 +46,43 @@ pub fn enroll_student(studentid: i32, dersid: i32, startdate: String) -> Result<
 
     Ok(format!("Telebe ID {} dərs ID {}-ə yazıldı", studentid, dersid))
 }
-
 #[tauri::command]
 pub fn get_students() -> Result<Vec<Student>, String> {
     let conn: rusqlite::Connection = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, first_name, last_name FROM students").map_err(|e| e.to_string())?;
+
+    // id, first_name, last_name və dərsləri toplamaq üçün join
+    let mut stmt = conn
+        .prepare(
+            "SELECT 
+                s.id, s.first_name, s.last_name, 
+                GROUP_CONCAT(d.name, ',') as dersler
+            FROM students s
+            LEFT JOIN student_courses sc ON s.id = sc.student_id
+            LEFT JOIN dersler d ON sc.ders_id = d.id
+            GROUP BY s.id, s.first_name, s.last_name",
+        )
+        .map_err(|e| e.to_string())?;
+
     let student_iter = stmt.query_map([], |row| {
+        let dersler_str: Option<String> = row.get(3)?; // NULL ola bilər
         Ok(Student {
             id: row.get(0)?,
             first_name: row.get(1)?,
             last_name: row.get(2)?,
+            dersler: dersler_str
+                .unwrap_or_default()
+                .split(',')
+                .map(|s| s.to_string())
+                .collect(),
         })
-    }).map_err(|e| e.to_string())?;
+    })
+    .map_err(|e| e.to_string())?;
+
     let mut students = Vec::new();
     for student in student_iter {
         students.push(student.map_err(|e| e.to_string())?);
     }
+
     Ok(students)
 }
 
@@ -72,20 +94,30 @@ pub fn get_students_by_ders(dersid: i32) -> Result<Vec<Student>, String> {
     let mut stmt = conn
         .prepare(
             "
-            SELECT s.id, s.first_name, s.last_name
+            SELECT 
+                s.id, s.first_name, s.last_name, 
+                GROUP_CONCAT(d.name, ',') as dersler
             FROM students s
             INNER JOIN student_courses sc ON s.id = sc.student_id
+            LEFT JOIN dersler d ON sc.ders_id = d.id
             WHERE sc.ders_id = ?
+            GROUP BY s.id, s.first_name, s.last_name
             ",
         )
         .map_err(|e| e.to_string())?;
 
     let student_iter = stmt
         .query_map(params![dersid], |row| {
+            let dersler_str: Option<String> = row.get(3)?; // NULL ola bilər
             Ok(Student {
                 id: row.get(0)?,
                 first_name: row.get(1)?,
                 last_name: row.get(2)?,
+                dersler: dersler_str
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(|s| s.to_string())
+                    .collect(),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -97,8 +129,6 @@ pub fn get_students_by_ders(dersid: i32) -> Result<Vec<Student>, String> {
 
     Ok(students)
 }
-
-
 
 #[tauri::command]
 pub fn get_student_balance(student_id: i32) -> Result<i32, String> {

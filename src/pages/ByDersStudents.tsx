@@ -9,7 +9,8 @@ function ByDersStudents() {
   const [students, setStudents] = createSignal<Student[]>([]);
 
   const fetchStudents = async () => {
-    setStudents(await invoke("get_students_by_ders", { ders_id: Number(params.id) }));
+    setStudents(await invoke("get_students_by_ders", { dersid: Number(params.id) }));
+    console.log(students())
   };
 
   return <StudentTable title="Fənn üzrə tələbələr" fetchStudents={fetchStudents} />;
