@@ -1,16 +1,19 @@
 mod dersler;
 mod teacher;
+mod students;
 use dersler::{add_ders, delete_ders, get_dersler, update_ders};
 use rusqlite::{Connection, Result};
+use students::{add_student,get_students,get_students_by_ders,enroll_student};
+use teacher::{add_teacher, delete_teacher, get_teachers, get_teachers_by_ders   , update_teacher, upload_image};
 
-use teacher::{add_teacher, delete_teacher, get_teachers, update_teacher, upload_image};
 
 pub fn init_db() -> Result<Connection> {
     let conn = Connection::open("studentmanagement.db")?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS dersler (
             id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
+            name TEXT NOT NULL,
+            monthly_fee INTEGER NOT NULL
         )",
         [],
     )?;
@@ -25,6 +28,43 @@ pub fn init_db() -> Result<Connection> {
           )",
         [],
     )?;
+
+
+ // Students
+ conn.execute(
+    "CREATE TABLE IF NOT EXISTS students (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name  TEXT NOT NULL,
+        last_name   TEXT NOT NULL
+    )",
+    [],
+)?;
+
+// Studentin kursları (bir telebe çox kursa yaza bilər)
+conn.execute(
+    "CREATE TABLE IF NOT EXISTS student_courses (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id  INTEGER NOT NULL,
+        ders_id     INTEGER NOT NULL,
+        start_date  TEXT NOT NULL,
+        FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+        FOREIGN KEY(ders_id) REFERENCES dersler(id) ON DELETE CASCADE
+    )",
+    [],
+)?;
+
+// Ödənişlər (telebe ödədikcə buraya yazılır)
+conn.execute(
+    "CREATE TABLE IF NOT EXISTS payments (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id  INTEGER NOT NULL,
+        amount      INTEGER NOT NULL,
+        date        TEXT NOT NULL,
+        FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+    )",
+    [],
+)?;
+
 
     Ok(conn)
 }
@@ -42,7 +82,12 @@ pub fn run() {
             upload_image,
             get_teachers,
             delete_ders,
-            update_ders
+            update_ders,
+            get_teachers_by_ders,
+            get_students,
+            add_student,
+            enroll_student,
+            get_students_by_ders,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

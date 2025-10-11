@@ -101,6 +101,36 @@ pub fn update_teacher(
     }
 }
 
+
+#[tauri::command]
+pub fn get_teachers_by_ders(dersid: i32) -> Result<Vec<Teacher>, String> {
+    let conn = init_db().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, first_name, last_name, profile_picture, ders_id FROM teachers WHERE ders_id = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let teacher_iter = stmt
+        .query_map(params![dersid], |row| {
+            Ok(Teacher {
+                id: row.get(0)?,
+                first_name: row.get(1)?,
+                last_name: row.get(2)?,
+                profile_picture: row.get(3)?,
+                ders_id: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut teachers = Vec::new();
+    for teacher in teacher_iter {
+        teachers.push(teacher.map_err(|e| e.to_string())?);
+    }
+
+    Ok(teachers)
+}
+
+
+
 #[tauri::command]
 pub fn delete_teacher(id: i32) -> Result<String, String> {
     let conn = init_db().map_err(|e| e.to_string())?;

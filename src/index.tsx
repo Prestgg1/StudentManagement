@@ -4,6 +4,9 @@ import { Router, Route, A } from "@solidjs/router";
 import Teachers from "./pages/Teachers";
 import './App.css'
 import Home from "./pages/Home";
+import ByDersTeachers from "./pages/ByDers";
+import Students from "./pages/Students";
+import ByDersStudents from "./pages/ByDersStudents";
 
 const Layout = (props: any) => {
     return (
@@ -62,6 +65,9 @@ const Layout = (props: any) => {
 
 render(() => <Router root={Layout}><Route path="/" component={Home} />
     <Route path="/teachers" component={Teachers} />
+    <Route path="/students" component={Students} />
+    <Route path="/ders/students/:id" component={ByDersStudents} />
+    <Route path="/ders/teachers/:id" component={ByDersTeachers} />
 
 </Router>, document.getElementById("root")!);
 

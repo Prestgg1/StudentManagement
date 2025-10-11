@@ -6,19 +6,22 @@ use serde::{Deserialize, Serialize};
 pub struct Ders {
     id: i32,
     name: String,
+    monthlyfee: i32
 }
 // Dersleri listeleme komutu
 #[tauri::command]
 pub fn get_dersler() -> Result<Vec<Ders>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name FROM dersler")
+        .prepare("SELECT id, name,monthly_fee FROM dersler")
         .map_err(|e| e.to_string())?;
     let ders_iter = stmt
         .query_map([], |row| {
             Ok(Ders {
                 id: row.get(0)?,
                 name: row.get(1)?,
+                monthlyfee: row.get(2)?
+
             })
         })
         .map_err(|e| e.to_string())?;
@@ -32,9 +35,9 @@ pub fn get_dersler() -> Result<Vec<Ders>, String> {
 }
 
 #[tauri::command]
-pub fn add_ders(name: String) -> Result<String, String> {
+pub fn add_ders(name: String,monthlyfee: i32) -> Result<String, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    conn.execute("INSERT INTO dersler (name) VALUES (?1)", params![name])
+    conn.execute("INSERT INTO dersler (name,monthly_fee)  VALUES (?1,?2)", params![name,monthlyfee])
         .map_err(|e| e.to_string())?;
     Ok(format!("Ders '{}' eklendi", name))
 }
