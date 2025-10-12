@@ -4,10 +4,9 @@ import { Subject } from "../types/subjects";
 
 export default function StudentForm(props: { subjects:Subject[],   onAdded: () => void; showToast: (msg: string, type?: "success" | "error") => void }) {
   const [adding, setAdding] = createSignal(false);
-  const [form, setForm] = createSignal<{ first_name: string; last_name: string; ders_id: number; profile_picture?: File }>({
+  const [form, setForm] = createSignal<{ first_name: string; last_name: string }>({
     first_name: "",
     last_name: "",
-    ders_id: 0,
   });
 
   const handleSubmit = async (e: Event) => {
@@ -21,7 +20,7 @@ export default function StudentForm(props: { subjects:Subject[],   onAdded: () =
         lastname: form().last_name,
       });
 
-      setForm({ first_name: "", last_name: "", ders_id: 0 });
+      setForm({ first_name: "", last_name: "" });
       props.onAdded();
       props.showToast("Tələbə əlavə olundu ✅");
     } catch (err) {
@@ -48,16 +47,6 @@ export default function StudentForm(props: { subjects:Subject[],   onAdded: () =
         value={form().last_name}
         onInput={(e) => setForm({ ...form(), last_name: e.currentTarget.value })}
       />
-        <select
-            class="input input-bordered mb-2"
-            value={form().ders_id}
-            onInput={(e) => setForm({ ...form(), ders_id: Number(e.currentTarget.value) })}
-          >
-            {props.subjects.map((s) => (
-              <option value={s.id}>{s.name}</option>
-            ))}
-          </select>
-
       <button type="submit" class="btn btn-primary" disabled={adding()}>
         {adding() ? "Əlavə edilir..." : "Əlavə et"}
       </button>

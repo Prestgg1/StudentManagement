@@ -1,22 +1,26 @@
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onMount, Show, For } from "solid-js";
 import { getSubjects } from "../services/subjects_service";
 import type { Subject } from "../types/subjects";
-import { deleteStudent } from "../services/student_service";
+import { deleteStudent, updateStudent } from "../services/student_service";
 import { Student } from "../types/student";
 import StudentForm from "../components/StudentForm";
+import EditStudentModal from "../components/EditStudentModal";
+import PaymentModal from "./PaymentModal";
 
 type Props = {
-  fetchStudents: () => Promise<void>; // fərqli səhifələrdən gələcək funksiyalar
+  students: Student[];
+  setStudents: (students: Student[]) => void;
+  fetchStudents: () => Promise<void>;
   title?: string;
 };
 
 function StudentTable(props: Props) {
-  const [students, setStudents] = createSignal<Student[]>([]);
   const [subjects, setSubjects] = createSignal<Subject[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [toastMsg, setToastMsg] = createSignal<string | null>(null);
   const [toastType, setToastType] = createSignal<"success" | "error">("success");
-
+  const [editingStudent, setEditingStudent] = createSignal<Student | null>(null);
+  const [paymentStudent, setPaymentStudent] = createSignal<Student | null>(null);
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToastMsg(msg);
     setToastType(type);
@@ -26,8 +30,7 @@ function StudentTable(props: Props) {
   const fetchSubjects = async () => {
     try {
       setSubjects(await getSubjects());
-    } catch (err) {
-      console.error(err);
+    } catch {
       showToast("Fənnləri gətirmək alınmadı!", "error");
     }
   };
@@ -37,17 +40,29 @@ function StudentTable(props: Props) {
     try {
       await deleteStudent(id);
       await props.fetchStudents();
-      showToast("Tələbə silindi 🗑️", "success");
-    } catch (err) {
-      console.error(err);
+      showToast("Tələbə silindi 🗑️");
+    } catch(e) {
+      console.log(e)
       showToast("Silinmə zamanı xəta baş verdi ❌", "error");
     }
   };
 
-  // Komponent mount olunanda həm fənnləri, həm tələbələri gətir
+  const handleSave = async (updated: Student) => {
+    try {
+      await updateStudent(updated);
+      await props.fetchStudents();
+      setEditingStudent(null);
+      showToast("Tələbə yeniləndi ✅");
+    } catch (e) {
+      console.log(e)
+      showToast("Yenilənmə zamanı xəta baş verdi ❌", "error");
+    }
+  };
+
   onMount(async () => {
     setLoading(true);
     await Promise.all([fetchSubjects(), props.fetchStudents()]);
+    console.log(props.students)
     setLoading(false);
   });
 
@@ -57,56 +72,80 @@ function StudentTable(props: Props) {
 
       <StudentForm subjects={subjects()} onAdded={props.fetchStudents} showToast={showToast} />
 
-      {loading() ? (
-        <div class="flex items-center justify-center space-x-2">
-          <span class="loading loading-spinner loading-md"></span>
-          <span>Yüklənilir...</span>
-        </div>
-      ) : students().length === 0 ? (
-        <p class="text-gray-500 text-center">Boş</p>
-      ) : (
+      <Show when={loading()} fallback={
         <table class="table w-full">
           <thead>
             <tr class="bg-base-200 text-sm">
               <th>ID</th>
               <th>Ad</th>
               <th>Soyad</th>
-              <th>Fənn</th>
+              <th>Fənnlər</th>
+              <th>Yığılmış Borclar</th>
               <th>Əməliyyatlar</th>
             </tr>
           </thead>
           <tbody>
-            {students().map((s) => (
-              <tr class="hover">
-                <td>{s.id}</td>
-                <td>{s.first_name}</td>
-                <td>{s.last_name}</td>
-                <td></td>
-                <td class="space-x-2">
+            <For each={props.students}>
+              {(s) => (
+                <tr class="hover">
+                  <td>{s.id}</td>
+                  <td>{s.first_name}</td>
+                  <td>{s.last_name}</td>
+                  <td>{s.dersler.map((d) => d.name).join(", ")}</td>
+                  <td>{s.debt} AZN</td>
+                  <td class="space-x-2">
+                  
                   <button
-                    class="btn btn-sm btn-outline btn-primary"
-                    onClick={() => console.log("Edit", s.id)}
-                  >
-                    Dəyiş
-                  </button>
-                  <button
-                    class="btn btn-sm btn-outline btn-error"
-                    onClick={() => handleDelete(s.id)}
-                  >
-                    Sil
-                  </button>
-                </td>
-              </tr>
-            ))}
+  class="btn btn-sm btn-outline btn-success"
+  onClick={() => setPaymentStudent(s)}
+>
+  Ödəniş
+</button>
+
+                    <button
+                      class="btn btn-sm btn-outline btn-primary"
+                      onClick={() => setEditingStudent(s)} // 🔹 Burada seçilən tələbəni yadda saxlayırıq
+                    >
+                      Dəyiş
+                    </button>
+                    <button
+                      class="btn btn-sm btn-outline btn-error"
+                      onClick={() => handleDelete(s.id)}
+                    >
+                      Sil
+                    </button>
+                  </td>
+                </tr>
+              )}
+            </For>
           </tbody>
         </table>
-      )}
+      }>
+        <div class="flex justify-center my-6">
+          <span class="loading loading-spinner loading-lg"></span>
+        </div>
+      </Show>
+
+      {/* 🔹 Yalnız bir modal */}
+      <Show when={editingStudent()}>
+        <EditStudentModal
+          student={editingStudent()!}
+          subjects={subjects()}
+          onSave={handleSave}
+          onClose={() => setEditingStudent(null)}
+        />
+      </Show>
+      <Show when={paymentStudent()}>
+        <PaymentModal
+          student={paymentStudent()!}
+          onClose={() => setPaymentStudent(null)}
+          onPaid={() => props.fetchStudents()}
+        />
+      </Show>
 
       {toastMsg() && (
         <div class="toast toast-end z-50">
-          <div
-            class={`alert ${toastType() === "success" ? "alert-success" : "alert-error"}`}
-          >
+          <div class={`alert ${toastType() === "success" ? "alert-success" : "alert-error"}`}>
             <span>{toastMsg()}</span>
           </div>
         </div>

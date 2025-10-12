@@ -13,7 +13,7 @@ function ByDersStudents() {
     console.log(students())
   };
 
-  return <StudentTable title="Fənn üzrə tələbələr" fetchStudents={fetchStudents} />;
+  return <StudentTable title="Fənn üzrə tələbələr" setStudents={setStudents} students={students()} fetchStudents={fetchStudents} />;
 }
 
 export default ByDersStudents;

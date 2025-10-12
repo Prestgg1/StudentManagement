@@ -2,11 +2,11 @@ use crate::init_db;
 use rusqlite::{params, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
 pub struct Ders {
-    id: i32,
-    name: String,
-    monthlyfee: i32
+    pub id: i32,
+    pub name: String,
+    pub monthlyfee: i32
 }
 // Dersleri listeleme komutu
 #[tauri::command]
