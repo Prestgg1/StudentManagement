@@ -3,7 +3,9 @@ mod teacher;
 mod students;
 use dersler::{add_ders, delete_ders, get_dersler, update_ders};
 use rusqlite::{Connection, Result};
-use students::{add_student,get_students,get_students_by_ders,search_student,update_student,
+use students::{add_student,
+    get_all_payments,
+    get_students,get_students_by_ders,search_student,update_student,
     delete_student,make_payment,get_student_payments};
 use teacher::{add_teacher, delete_teacher, get_teachers, get_teachers_by_ders   , update_teacher, upload_image};
 
@@ -93,6 +95,7 @@ pub fn run() {
             get_student_payments,
             delete_student,
             search_student,
+            get_all_payments,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

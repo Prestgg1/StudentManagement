@@ -7,6 +7,8 @@ import Home from "./pages/Home";
 import ByDersTeachers from "./pages/ByDers";
 import Students from "./pages/Students";
 import ByDersStudents from "./pages/ByDersStudents";
+import Payments from "./pages/Payments";
+import Settings from "./pages/Settings";
 
 const Layout = (props: any) => {
     return (
@@ -68,6 +70,8 @@ render(() => <Router root={Layout}><Route path="/" component={Home} />
     <Route path="/students" component={Students} />
     <Route path="/ders/students/:id" component={ByDersStudents} />
     <Route path="/ders/teachers/:id" component={ByDersTeachers} />
+    <Route path="/payments" component={Payments} />
+    <Route path="/settings" component={Settings} />
 
 </Router>, document.getElementById("root")!);
 

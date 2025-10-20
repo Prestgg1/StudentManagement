@@ -25,6 +25,7 @@ pub struct Payment {
     pub student_id: i32,
     pub amount: i32,
     pub date: String,
+    pub paid: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -160,7 +161,7 @@ pub fn get_students() -> Result<Vec<StudentResponse>, String> {
 }
 
 #[tauri::command]
-pub fn get_students_by_ders(dersid: i32) -> Result<Vec<Student>, String> {
+pub fn get_students_by_ders(dersid: i32) -> Result<Vec<StudentResponse>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
 
     let mut stmt = conn.prepare(
@@ -181,12 +182,14 @@ pub fn get_students_by_ders(dersid: i32) -> Result<Vec<Student>, String> {
             .filter(|s| !s.is_empty())
             .map(|name| Ders { id: 0, name: name.to_string(), monthlyfee: 0 })
             .collect();
+        let debt: Result<i32, String> = get_student_balance(row.get(0)?);
 
-        Ok(Student {
+        Ok(StudentResponse {
             id: row.get(0)?,
             first_name: row.get(1)?,
             last_name: row.get(2)?,
             dersler: ders_list,
+            debt: debt.unwrap_or(0),
         })
     }).map_err(|e| e.to_string())?;
 
@@ -261,8 +264,12 @@ pub fn get_student_balance(student_id: i32) -> Result<i32, String> {
     Ok(total_due - total_paid)
 }
 
+
 #[tauri::command]
 pub fn get_student_payments(studentid: i32) -> Result<Vec<Payment>, String> {
+    use chrono::{Datelike, NaiveDate};
+    use rusqlite::params;
+
     let conn = init_db().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
         "SELECT p.id, p.amount, p.date
@@ -276,6 +283,7 @@ pub fn get_student_payments(studentid: i32) -> Result<Vec<Payment>, String> {
             student_id: studentid,
             amount: row.get(1)?,
             date: row.get::<_, String>(2)?,
+            paid: true, // Yeni sahə əlavə edirik
         })
     }).map_err(|e| e.to_string())?;
 
@@ -284,37 +292,63 @@ pub fn get_student_payments(studentid: i32) -> Result<Vec<Payment>, String> {
         payments.push(p.map_err(|e| e.to_string())?);
     }
 
-    // Ən son ödənişdən bu günə qədər aylıq data yaratmaq
-    if let Some(first) = payments.first() {
-        let mut start = NaiveDate::parse_from_str(&first.date, "%Y-%m-%d")
-            .unwrap_or_else(|_| chrono::Local::today().naive_local());
-        let today = chrono::Local::today().naive_local();
+    // Əgər heç ödəniş yoxdursa, belə olsa da, ən azı bu ilin əvvəlindən bu günə qədər bütün ayları göstər.
+    let today = chrono::Local::today().naive_local();
+    let start = if let Some(first_payment) = payments.first() {
+        NaiveDate::parse_from_str(&first_payment.date, "%Y-%m-%d")
+            .unwrap_or_else(|_| NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap())
+    } else {
+        // Əgər heç ödəniş yoxdursa, başlanğıc olaraq bu ilin yanvar ayı götürülür
+        NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap()
+    };
 
-        let mut complete_payments: Vec<Payment> = Vec::new();
-        while start <= today {
-            if let Some(p) = payments.iter().find(|p| p.date.starts_with(&format!("{}-{:02}", start.year(), start.month()))) {
-                complete_payments.push(p.clone());
-            } else {
-                // Ödəniş yoxdursa, amount = 0
+    let mut month_cursor = NaiveDate::from_ymd_opt(start.year(), start.month(), 1).unwrap();
+    let mut complete_payments: Vec<Payment> = Vec::new();
+
+    while month_cursor <= today {
+        // Bu ay üçün ödəniş varmı?
+        let mut found_payment: Option<Payment> = None;
+        for p in payments.iter() {
+            let p_date = NaiveDate::parse_from_str(&p.date, "%Y-%m-%d")
+                .unwrap_or_else(|_| today);
+            if p_date.year() == month_cursor.year() && p_date.month() == month_cursor.month() {
+                found_payment = Some(p.clone());
+                break;
+            }
+        }
+
+        match found_payment {
+            Some(mut p) => {
+                p.paid = true;
+                complete_payments.push(p);
+            }
+            None => {
                 complete_payments.push(Payment {
                     id: 0,
                     student_id: studentid,
                     amount: 0,
-                    date: start.format("%Y-%m-%d").to_string(),
+                    date: month_cursor.format("%Y-%m-%d").to_string(),
+                    paid: false, // Ödəniş yoxdur
                 });
             }
-            // Sonrakı ay
-            start = if start.month() == 12 {
-                NaiveDate::from_ymd(start.year() + 1, 1, 1)
-            } else {
-                NaiveDate::from_ymd(start.year(), start.month() + 1, 1)
-            };
         }
-        payments = complete_payments;
+
+        // Sonrakı aya keçirik
+        month_cursor = next_month_from_date(month_cursor);
     }
 
-    Ok(payments)
+    Ok(complete_payments)
 }
+
+fn next_month_from_date(current_date: NaiveDate) -> NaiveDate {
+    if current_date.month() == 12 {
+        NaiveDate::from_ymd_opt(current_date.year() + 1, 1, 1).unwrap()
+    } else {
+        NaiveDate::from_ymd_opt(current_date.year(), current_date.month() + 1, 1).unwrap()
+    }
+}
+
+
 #[tauri::command]
 pub fn make_payment(studentid: i32, amount: i32, date: String) -> Result<String, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
@@ -323,4 +357,49 @@ pub fn make_payment(studentid: i32, amount: i32, date: String) -> Result<String,
         params![studentid, amount, date],
     ).map_err(|e| e.to_string())?;
     Ok(format!("Tələbə ID {} üçün {} AZN ödəniş əlavə olundu ✅", studentid, amount))
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PaymentWithStudent {
+    pub id: i32,
+    pub student_id: i32,
+    pub student_name: String,
+    pub amount: i32,
+    pub date: String,
+}
+
+#[tauri::command]
+pub fn get_all_payments() -> Result<Vec<PaymentWithStudent>, String> {
+    let conn: Connection = init_db().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "
+        SELECT 
+            p.id,
+            p.student_id,
+            s.first_name || ' ' || s.last_name AS student_name,
+            p.amount,
+            p.date
+        FROM payments p
+        INNER JOIN students s ON p.student_id = s.id
+        ORDER BY p.date DESC
+        "
+    ).map_err(|e| e.to_string())?;
+
+    let payment_iter = stmt.query_map([], |row| {
+        Ok(PaymentWithStudent {
+            id: row.get(0)?,
+            student_id: row.get(1)?,
+            student_name: row.get(2)?,
+            amount: row.get(3)?,
+            date: row.get(4)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut payments: Vec<PaymentWithStudent> = Vec::new();
+    for p in payment_iter {
+        payments.push(p.map_err(|e| e.to_string())?);
+    }
+
+    Ok(payments)
 }
